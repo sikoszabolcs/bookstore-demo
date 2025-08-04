@@ -1,8 +1,10 @@
 const express = require('express');
 const axios = require('axios');
+const os = require('os')
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const POD_NAME = process.env.HOSTNAME || os.hostname();
 
 app.get('/books', async (req, res) => {
     try {
@@ -14,13 +16,25 @@ app.get('/books', async (req, res) => {
             {id: 2, title:"Kubernetes Up & Running", author: authors.data[1], rating: ratings.data[2]},
         ];
 
-        res.json(books);
+        res.json({
+            books: books,
+            servedBy: {
+                podName: POD_NAME,
+                timestamp: new Date().toISOString()
+            }
+        });
     } catch (error) {
         console.error('Error:', error.message);
-        res.status(500).json({error: 'Service unavailable'});
+        res.status(500).json({
+            error: 'Service unavailable',
+            servedBy: {
+                podName: POD_NAME,
+                timestamp: new Date().toISOString()
+            }
+        });
     }
 });
 
 app.listen(PORT, () => {
-  console.log(`Book service running on port ${PORT}`);
+  console.log(`Book service running on port ${PORT} in pod ${POD_NAME}`);
 });
