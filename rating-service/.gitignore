@@ -1,0 +1,27 @@
+# Go binary files
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Go test binary files
+*.test
+
+# Output of the go coverage tool
+*.out
+
+# Go workspace file
+go.work
+
+# Go modules
+go.sum
+
+# Build artifacts
+bin/
+_obj/
+_test/
+
+# IDE files
+.vscode/
+.idea/
