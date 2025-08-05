@@ -41,9 +41,8 @@ jobs:
       # Get the GKE credentials so we can deploy to the cluster
       - uses: google-github-actions/get-gke-credentials@v2
         with:
-          cluster_name: ${{ env.GKE_CLUSTER }}
-          location: ${{ env.GKE_ZONE }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          # Use full resource name instead of separate parameters
+          cluster_name: projects/${{ secrets.GCP_PROJECT_ID }}/locations/${{ secrets.GCP_ZONE }}/clusters/bookstore-cluster
 
       # Build and push Book Service
       - name: Build and Push Book Service
