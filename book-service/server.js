@@ -35,6 +35,16 @@ app.get('/books', async (req, res) => {
     }
 });
 
+// Add health check endpoints
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+app.get('/ready', (req, res) => {
+  // Add logic to check if service is ready (DB connections, etc.)
+  res.status(200).json({ status: 'ready', timestamp: new Date().toISOString() });
+});
+
 app.listen(PORT, () => {
   console.log(`Book service running on port ${PORT} in pod ${POD_NAME}`);
 });

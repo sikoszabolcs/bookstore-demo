@@ -1,0 +1,35 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualServiceß
+metadata:
+  name: book-service-canary
+spec:
+  hosts:
+    - book-service
+  http:
+    - route:
+        - destination:
+            host: book-service
+            subset: v1
+          weight: 90
+        - destination:
+            host: book-service
+            subset: v2
+          weight: 10
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: book-service-circuitbreaker
+spec:
+  host: book-service
+  trafficPolicy:
+    connectionPool:
+      tcp:
+        maxConnections: 100
+      http:
+        http1MaxPendingRequests: 10
+        maxRequestsPerConnection: 10
+    outlierDetection:
+      consecutive5xxErrors: 7
+      interval: 30s
+      baseEjectionTime: 30s

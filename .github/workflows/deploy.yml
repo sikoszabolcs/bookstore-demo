@@ -1,0 +1,93 @@
+name: Build and Deploy to GKE
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "book-service/**"
+      - "author-service/**"
+      - "rating-service/**"
+      - "k8s/**"
+  pull_request:
+    branches: [main]
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  GKE_CLUSTER: bookstore-cluster
+  GKE_ZONE: ${{ secrets.GCP_ZONE }}
+  DEPLOYMENT_NAME: bookstore-deployment
+
+jobs:
+  setup-build-publish-deploy:
+    name: Setup, Build, Publish, and Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Setup gcloud CLI
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          service_account_key: ${{ secrets.GCP_SA_KEY }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      # Configure Docker to use gcloud as a credential helper
+      - name: Configure Docker
+        run: gcloud auth configure-docker
+
+      # Get the GKE credentials so we can deploy to the cluster
+      - uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ env.GKE_CLUSTER }}
+          location: ${{ env.GKE_ZONE }}
+          credentials: ${{ secrets.GCP_SA_KEY }}
+
+      # Build and push Book Service
+      - name: Build and Push Book Service
+        run: |-
+          docker build -t gcr.io/${{ env.PROJECT_ID }}/book-service:${{ github.sha }} ./book-service
+          docker push gcr.io/${{ env.PROJECT_ID }}/book-service:${{ github.sha }}
+
+      # Build and push Author Service
+      - name: Build and Push Author Service
+        run: |-
+          docker build -t gcr.io/${{ env.PROJECT_ID }}/author-service:${{ github.sha }} ./author-service
+          docker push gcr.io/${{ env.PROJECT_ID }}/author-service:${{ github.sha }}
+
+      # Build and push Rating Service
+      - name: Build and Push Rating Service
+        run: |-
+          docker build -t gcr.io/${{ env.PROJECT_ID }}/rating-service:${{ github.sha }} ./rating-service
+          docker push gcr.io/${{ env.PROJECT_ID }}/rating-service:${{ github.sha }}
+
+      # Set up kustomize (optional - for advanced deployments)
+      - name: Set up Kustomize
+        run: |-
+          curl -sfLo kustomize https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.0.0/kustomize_v5.0.0_linux_amd64.tar.gz
+          tar -xzf kustomize
+          chmod +x kustomize
+
+      # Deploy the Kubernetes manifests
+      - name: Deploy to GKE
+        run: |-
+          # Update image tags in deployment
+          sed -i 's|gcr.io/${{ env.PROJECT_ID }}/book-service:.*|gcr.io/${{ env.PROJECT_ID }}/book-service:${{ github.sha }}|' k8s/gke-deployment.yaml
+          sed -i 's|gcr.io/${{ env.PROJECT_ID }}/author-service:.*|gcr.io/${{ env.PROJECT_ID }}/author-service:${{ github.sha }}|' k8s/gke-deployment.yaml
+          sed -i 's|gcr.io/${{ env.PROJECT_ID }}/rating-service:.*|gcr.io/${{ env.PROJECT_ID }}/rating-service:${{ github.sha }}|' k8s/gke-deployment.yaml
+
+          # Deploy to cluster
+          kubectl apply -f k8s/gke-deployment.yaml
+
+          # Wait for rollout to complete
+          kubectl rollout status deployment/book-service
+          kubectl rollout status deployment/author-service
+          kubectl rollout status deployment/rating-service
+
+      # Verify deployment
+      - name: Verify Deployment
+        run: |-
+          kubectl get services
+          kubectl get pods
+          echo "Deployment completed successfully!"
